@@ -1,5 +1,7 @@
 const express = require("express");
 const prisma = require("../prisma");
+const { sendWebhook } = require("../utils/webhook");
+
 
 const router = express.Router();
 
@@ -85,5 +87,59 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+
+// POST /run-job/:id
+router.post("/run-job/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ message: "Invalid job id" });
+    }
+
+    // 1) Find job
+    const job = await prisma.job.findUnique({ where: { id } });
+    if (!job) return res.status(404).json({ message: "Job not found" });
+
+    // Prevent re-running if already running/completed
+    if (job.status === "running") {
+      return res.status(409).json({ message: "Job is already running" });
+    }
+    if (job.status === "completed") {
+      return res.status(409).json({ message: "Job already completed" });
+    }
+
+    // 2) Set status -> running
+    await prisma.job.update({
+      where: { id },
+      data: { status: "running" },
+    });
+
+    // 3) Respond immediately (so UI feels fast)
+    res.json({ ok: true, message: "Job started" });
+
+    // 4) Simulate processing (3 seconds)
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    // 5) Set status -> completed
+    const completedJob = await prisma.job.update({
+      where: { id },
+      data: { status: "completed", completedAt: new Date() },
+    });
+
+    // 6) Trigger webhook
+    const webhookPayload = {
+      jobId: completedJob.id,
+      taskName: completedJob.taskName,
+      priority: completedJob.priority,
+      payload: completedJob.payload,
+      completedAt: completedJob.completedAt,
+    };
+
+    const webhookResult = await sendWebhook(webhookPayload);
+    console.log("Webhook result:", webhookResult);
+  } catch (err) {
+    console.error("POST /run-job/:id error:", err);
+  }
+});
 
 module.exports = router;
