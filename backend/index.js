@@ -11,5 +11,11 @@ app.use(express.json());
 app.get("/health", (req, res) => res.json({ ok: true }));
 app.use("/jobs", jobsRoutes);
 
+app.post("/webhook-test", (req, res) => {
+  console.log("✅ Webhook received:", req.body);
+  res.json({ ok: true });
+});
+
+
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
