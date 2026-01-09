@@ -2,13 +2,14 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
+const jobsRoutes = require("./src/routes/jobs.routes");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/health", (req, res) => {
-  res.json({ ok: true, service: "backend", time: new Date().toISOString() });
-});
+app.get("/health", (req, res) => res.json({ ok: true }));
+app.use("/jobs", jobsRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`API running on http://localhost:${PORT}`));
